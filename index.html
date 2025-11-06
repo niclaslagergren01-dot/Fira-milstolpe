@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🎉 Globe Technologies firar milstolpe!</title>
+  <meta name="description" content="Globe Technologies firar en ny försäljningsmilstolpe i Sverige med fyrverkerier och konfetti!" />
+  <style>
+    :root {
+      --bg1:#0b1220;
+      --bg2:#162642;
+      --accent:#ffd100;
+      --accent2:#005bb5;
+      --text:#ecf2ff;
+    }
+    html, body {
+      margin:0; height:100%; overflow:hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
+      background: radial-gradient(1000px 600px at 70% 20%, var(--bg2), var(--bg1));
+      color: var(--text);
+    }
+    canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+    .overlay {
+      position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; padding:24px;
+    }
+    .card {
+      pointer-events:auto;
+      background: rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.18);
+      border-radius:20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      padding: 32px;
+      max-width: 700px;
+      text-align:center;
+      backdrop-filter: blur(8px);
+    }
+    img.logo {
+      max-width:240px;
+      margin-bottom:16px;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4));
+    }
+    h1 {
+      font-size: clamp(28px, 4vw, 56px);
+      margin: 0 0 8px;
+    }
+    .milestone {
+      color: var(--accent);
+      font-size: clamp(22px, 3vw, 36px);
+      font-weight: 800;
+    }
+    #countdown {
+      font-size: 32px;
+      color: var(--accent);
+      font-weight: bold;
+      margin: 12px 0;
+    }
+    .btn {
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:12px 20px;
+      margin:6px;
+      cursor:pointer;
+      font-weight:700;
+      color:#0b1220;
+      background: conic-gradient(from 180deg, var(--accent), var(--accent2));
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transition: transform .06s ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .muted {
+      background: rgba(255,255,255,0.12);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="sky"></canvas>
+  <div class="overlay">
+    <section class="card">
+      <img src="https://raw.githubusercontent.com/niclaslagergren01-dot/Fira-milstolpe/main/39043b54-2624-4db5-8b1e-5af94ecc4be4.png" alt="Globe Technologies" class="logo" />
+      <h1>🎉 Vi har nått en ny milstolpe i Sverige!</h1>
+      <p class="milestone" id="milestone">Vi nådde: <span id="milText">—</span></p>
+      <div id="countdown"></div>
+      <p>Tack till alla våra kunder och vårt fantastiska team 💙💛</p>
+      <div>
+        <button class="btn" id="replay">Skjut upp raketer 🚀</button>
+        <button class="btn muted" id="confetti">Mera konfetti 🎉</button>
+        <button class="btn muted" id="sfx">Ljud: Av</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Milstolpe via URL
+    const params = new URLSearchParams(location.search);
+    const mil = params.get('mil') || 'Nytt försäljningsrekord!';
+    document.getElementById('milText').textContent = mil;
+
+    // Canvas setup
+    const canvas = document.getElementById('sky');
+    const ctx = canvas.getContext('2d');
+    let W, H, DPR;
+    function resize() {
+      DPR = Math.min(2, devicePixelRatio || 1);
+      W = canvas.width = innerWidth * DPR;
+      H = canvas.height = innerHeight * DPR;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    const rand = (a,b)=>a+Math.random()*(b-a);
+    const TAU = Math.PI*2;
+    const rockets=[], fireworks=[], confetti=[];
+
+    class Particle {
+      constructor(x,y,vx,vy,color,life){
+        this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.color=color;
+        this.life=life; this.max=life;
+      }
+      step(dt){
+        this.life -= dt;
+        if(this.life<=0) return false;
+        this.vy += 60*dt;
+        this.x += this.vx*dt; this.y += this.vy*dt;
+        return true;
+      }
+      draw(){
+        ctx.globalAlpha = Math.max(0,this.life/this.max);
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.arc(this.x,this.y,2,0,TAU); ctx.fill();
+      }
+    }
+
+    class Confetto {
+      constructor(x,y){
+        this.x=x; this.y=y;
+        this.w=rand(6,12); this.h=rand(8,16);
+        this.xv=rand(-30,30); this.yv=rand(20,60);
+        this.color = Math.random()<0.5?'#ffd100':'#005bb5';
+      }
+      step(dt){
+        this.y+=this.yv*dt; this.x+=this.xv*dt;
+        return this.y < H+50;
+      }
+      draw(){
+        ctx.fillStyle=this.color;
+        ctx.fillRect(this.x,this.y,this.w,this.h);
+      }
+    }
+
+    class Rocket {
+      constructor(){
+        this.x=rand(W*0.2,W*0.8);
+        this.y=H+10;
+        this.vx=rand(-45,45); this.vy=-rand(360,520);
+        this.color=Math.random()<0.5?'#ffd100':'#7bb7ff';
+        this.trail=[]; this.targetY=rand(H*0.18,H*0.4);
+      }
+      step(dt){
+        this.x+=this.vx*dt; this.y+=this.vy*dt;
+        this.vy+=80*dt;
+        this.trail.push([this.x,this.y]);
+        if(this.trail.length>10) this.trail.shift();
+        if(this.vy>-30 || this.y<=this.targetY){this.explode(); return false;}
+        return true;
+      }
+      explode(){
+        for(let i=0;i<100;i++){
+          const a=rand(0,TAU), s=rand(80,360);
+          fireworks.push(new Particle(this.x,this.y,Math.cos(a)*s,Math.sin(a)*s,
+            Math.random()<0.5?'#ffd100':'#005bb5', rand(0.8,1.8)));
+        }
+      }
+      draw(){
+        ctx.strokeStyle=this.color; ctx.beginPath();
+        for(let i=0;i<this.trail.length;i++){
+          const [x,y]=this.trail[i]; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+        ctx.fillStyle=this.color;
+        ctx.beginPath(); ctx.arc(this.x,this.y,3,0,TAU); ctx.fill();
+      }
+    }
+
+    function burstConfetti(n=150){for(let i=0;i<n;i++)confetti.push(new Confetto(rand(0,W),rand(-80,-10)));}
+    const soundBtn=document.getElementById('sfx'); let soundOn=false;
+    soundBtn.addEventListener('click',()=>{soundOn=!soundOn;soundBtn.textContent='Ljud: '+(soundOn?'På':'Av');});
+
+    let last=performance.now();
+    function loop(now){
+      const dt=Math.min(0.033,(now-last)/1000); last=now;
+      ctx.clearRect(0,0,W,H);
+      for(let i=rockets.length-1;i>=0;i--){const r=rockets[i]; if(!r.step(dt))rockets.splice(i,1); else r.draw();}
+      for(let i=fireworks.length-1;i>=0;i--){const p=fireworks[i]; if(!p.step(dt))fireworks.splice(i,1); else p.draw();}
+      for(let i=confetti.length-1;i>=0;i--){const c=confetti[i]; if(!c.step(dt))confetti.splice(i,1); else c.draw();}
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    function shootShow(){
+      for(let i=0;i<8;i++){
+        setTimeout(()=>{for(let j=0;j<rand(2,4);j++)rockets.push(new Rocket());burstConfetti(40);},i*400);
+      }
+    }
+    document.getElementById('replay').addEventListener('click',()=>shootShow());
+    document.getElementById('confetti').addEventListener('click',()=>burstConfetti(200));
+
+    // Nedräkning
+    const countdown=document.getElementById('countdown');
+    let t=5;
+    const interval=setInterval(()=>{
+      countdown.textContent=`Show startar om ${t--}...`;
+      if(t<0){clearInterval(interval); countdown.textContent='🚀 Nu kör vi!'; shootShow(); burstConfetti(200); setTimeout(()=>countdown.textContent='',2000);}
+    },1000);
+  </script>
+</body>
+</html>
